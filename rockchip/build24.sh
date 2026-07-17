@@ -11,7 +11,7 @@ IMAGEBUILDER_PROFILE="$PROFILE"
 CUSTOM_BOARD_NAME=""
 CUSTOM_BOARD_MODEL=""
 CUSTOM_KERNEL_PIPE=""
-CUSTOM_REMOVE_PACKAGES=""
+CUSTOM_WIFI_PACKAGES=""
 # yml 传入的固件大小 ROOTFS_PARTSIZE
 echo "Building for ROOTFS_PARTSIZE: $ROOTFS_PARTSIZE"
 
@@ -125,7 +125,7 @@ prepare_custom_rockchip_board() {
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
             CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
-            CUSTOM_REMOVE_PACKAGES="-kmod-brcmfmac -brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio"
+            CUSTOM_WIFI_PACKAGES="-brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio brcmfmac-firmware-43430a0-sdio brcmfmac-nvram-43430-sdio"
             ;;
         boocax)
             CUSTOM_BOARD_NAME="boocax"
@@ -133,7 +133,7 @@ prepare_custom_rockchip_board() {
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-boocax.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
             CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
-            CUSTOM_REMOVE_PACKAGES="-kmod-brcmfmac -brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio"
+            CUSTOM_WIFI_PACKAGES=""
             ;;
         *)
             echo "⚪️ 当前 profile 使用 ImageBuilder 原生配置: $PROFILE"
@@ -151,7 +151,9 @@ prepare_custom_rockchip_board() {
 
     echo "✅ 自定义设备树大小: $(stat -c%s "$CUSTOM_DTB") bytes"
     echo "✅ 自定义 KERNEL 打包管线: $CUSTOM_KERNEL_PIPE"
-    echo "✅ 自定义板型将移除 NanoPC-T4 默认无线包: $CUSTOM_REMOVE_PACKAGES"
+    if [ -n "$CUSTOM_WIFI_PACKAGES" ]; then
+        echo "✅ 自定义板型 WiFi 软件包调整: $CUSTOM_WIFI_PACKAGES"
+    fi
 }
 
 install_custom_board_model_override() {
@@ -199,7 +201,7 @@ rename_custom_rockchip_images() {
 prepare_custom_rockchip_board
 install_custom_board_model_override
 
-BUILD_PACKAGES="$PACKAGES $CUSTOM_REMOVE_PACKAGES"
+BUILD_PACKAGES="$PACKAGES $CUSTOM_WIFI_PACKAGES"
 echo "✅ 最终软件包参数:"
 echo "$BUILD_PACKAGES"
 
