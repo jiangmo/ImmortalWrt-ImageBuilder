@@ -125,7 +125,7 @@ prepare_custom_rockchip_board() {
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
             CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
-            CUSTOM_WIFI_PACKAGES="-brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio brcmfmac-firmware-43430a0-sdio brcmfmac-nvram-43430-sdio"
+            CUSTOM_WIFI_PACKAGES="-brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio -brcmfmac-firmware-43430a0-sdio cypress-firmware-43430-sdio brcmfmac-nvram-43430-sdio"
             ;;
         boocax)
             CUSTOM_BOARD_NAME="boocax"
@@ -154,6 +154,17 @@ prepare_custom_rockchip_board() {
     if [ -n "$CUSTOM_WIFI_PACKAGES" ]; then
         echo "✅ 自定义板型 WiFi 软件包调整: $CUSTOM_WIFI_PACKAGES"
     fi
+}
+
+install_dg3399_wifi_firmware_links() {
+    if [ "$CUSTOM_BOARD_NAME" != "dg3399" ]; then
+        return
+    fi
+
+    mkdir -p /home/build/immortalwrt/files/lib/firmware/brcm
+    ln -sf brcmfmac43430-sdio.AP6212.txt /home/build/immortalwrt/files/lib/firmware/brcm/brcmfmac43430-sdio.txt
+    ln -sf brcmfmac43430-sdio.AP6212.txt "/home/build/immortalwrt/files/lib/firmware/brcm/brcmfmac43430-sdio.friendlyarm,nanopc-t4.txt"
+    echo "✅ 已预置 dg3399 AP6212 WiFi NVRAM 兼容链接"
 }
 
 install_custom_board_model_override() {
@@ -199,6 +210,7 @@ rename_custom_rockchip_images() {
 }
 
 prepare_custom_rockchip_board
+install_dg3399_wifi_firmware_links
 install_custom_board_model_override
 
 BUILD_PACKAGES="$PACKAGES $CUSTOM_WIFI_PACKAGES"
