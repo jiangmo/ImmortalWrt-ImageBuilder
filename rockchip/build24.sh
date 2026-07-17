@@ -9,7 +9,9 @@ echo "Starting 99-custom.sh at $(date)" >> $LOGFILE
 echo "Building for profile: $PROFILE"
 IMAGEBUILDER_PROFILE="$PROFILE"
 CUSTOM_BOARD_NAME=""
+CUSTOM_BOARD_MODEL=""
 CUSTOM_KERNEL_PIPE=""
+CUSTOM_REMOVE_PACKAGES=""
 # yml 传入的固件大小 ROOTFS_PARTSIZE
 echo "Building for ROOTFS_PARTSIZE: $ROOTFS_PARTSIZE"
 
@@ -119,15 +121,19 @@ prepare_custom_rockchip_board() {
     case "$PROFILE" in
         dg3399)
             CUSTOM_BOARD_NAME="dg3399"
+            CUSTOM_BOARD_MODEL="DG3399"
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
             CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
+            CUSTOM_REMOVE_PACKAGES="-kmod-brcmfmac -brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio"
             ;;
         boocax)
             CUSTOM_BOARD_NAME="boocax"
+            CUSTOM_BOARD_MODEL="BOOCAX"
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-boocax.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
             CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
+            CUSTOM_REMOVE_PACKAGES="-kmod-brcmfmac -brcmfmac-firmware-4356-sdio -brcmfmac-nvram-4356-sdio"
             ;;
         *)
             echo "⚪️ 当前 profile 使用 ImageBuilder 原生配置: $PROFILE"
@@ -145,6 +151,32 @@ prepare_custom_rockchip_board() {
 
     echo "✅ 自定义设备树大小: $(stat -c%s "$CUSTOM_DTB") bytes"
     echo "✅ 自定义 KERNEL 打包管线: $CUSTOM_KERNEL_PIPE"
+    echo "✅ 自定义板型将移除 NanoPC-T4 默认无线包: $CUSTOM_REMOVE_PACKAGES"
+}
+
+install_custom_board_model_override() {
+    if [ -z "$CUSTOM_BOARD_NAME" ]; then
+        return
+    fi
+
+    mkdir -p /home/build/immortalwrt/files/etc/init.d
+    mkdir -p /home/build/immortalwrt/files/etc/rc.d
+
+    cat > /home/build/immortalwrt/files/etc/init.d/custom-board-model << EOF
+#!/bin/sh /etc/rc.common
+
+START=05
+
+start() {
+    mkdir -p /tmp/sysinfo
+    echo "$CUSTOM_BOARD_MODEL" > /tmp/sysinfo/model
+    echo "$CUSTOM_BOARD_NAME" > /tmp/sysinfo/board_name
+}
+EOF
+
+    chmod +x /home/build/immortalwrt/files/etc/init.d/custom-board-model
+    ln -sf ../init.d/custom-board-model /home/build/immortalwrt/files/etc/rc.d/S05custom-board-model
+    echo "✅ 已安装自定义板型显示覆盖: $CUSTOM_BOARD_MODEL ($CUSTOM_BOARD_NAME)"
 }
 
 rename_custom_rockchip_images() {
@@ -165,11 +197,16 @@ rename_custom_rockchip_images() {
 }
 
 prepare_custom_rockchip_board
+install_custom_board_model_override
+
+BUILD_PACKAGES="$PACKAGES $CUSTOM_REMOVE_PACKAGES"
+echo "✅ 最终软件包参数:"
+echo "$BUILD_PACKAGES"
 
 if [ -n "$CUSTOM_KERNEL_PIPE" ]; then
-    make image PROFILE=$IMAGEBUILDER_PROFILE KERNEL="$CUSTOM_KERNEL_PIPE" PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+    make image PROFILE=$IMAGEBUILDER_PROFILE KERNEL="$CUSTOM_KERNEL_PIPE" PACKAGES="$BUILD_PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
 else
-    make image PROFILE=$IMAGEBUILDER_PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+    make image PROFILE=$IMAGEBUILDER_PROFILE PACKAGES="$BUILD_PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
 fi
 
 if [ $? -ne 0 ]; then
