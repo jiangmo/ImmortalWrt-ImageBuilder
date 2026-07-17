@@ -6,6 +6,8 @@ LOGFILE="/tmp/uci-defaults-log.txt"
 echo "Starting 99-custom.sh at $(date)" >> $LOGFILE
 # yml 传入的路由器型号 PROFILE
 echo "Building for profile: $PROFILE"
+IMAGEBUILDER_PROFILE="$PROFILE"
+CUSTOM_BOARD_NAME=""
 # yml 传入的固件大小 ROOTFS_PARTSIZE
 echo "Building for ROOTFS_PARTSIZE: $ROOTFS_PARTSIZE"
 
@@ -106,39 +108,72 @@ else
     echo "⚪️ 未选择 luci-app-ssr-plus"
 fi
 
-replace_dg3399_dtb() {
-    if [ "$PROFILE" != "friendlyarm_nanopc-t4" ]; then
-        echo "⚪️ 当前 profile 不是 friendlyarm_nanopc-t4，跳过 dg3399 设备树替换"
-        return
-    fi
+prepare_custom_rockchip_board() {
+    case "$PROFILE" in
+        dg3399)
+            CUSTOM_BOARD_NAME="dg3399"
+            CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
+            IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
+            ;;
+        boocax)
+            CUSTOM_BOARD_NAME="boocax"
+            CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-boocax.dtb"
+            IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
+            ;;
+        *)
+            echo "⚪️ 当前 profile 使用 ImageBuilder 原生配置: $PROFILE"
+            return
+            ;;
+    esac
 
-    CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
+    echo "✅ 当前选择自定义 Rockchip 板子: $CUSTOM_BOARD_NAME"
+    echo "✅ ImageBuilder 打包 profile 映射为: $IMAGEBUILDER_PROFILE"
+
     if [ ! -f "$CUSTOM_DTB" ]; then
-        echo "❌ 未找到 dg3399 设备树: $CUSTOM_DTB"
+        echo "❌ 未找到自定义设备树: $CUSTOM_DTB"
         exit 1
     fi
 
     DTB_TARGETS=$(find /home/build/immortalwrt -type f -name "rk3399-nanopc-t4.dtb" 2>/dev/null || true)
     if [ -z "$DTB_TARGETS" ]; then
-        echo "❌ 未在 ImageBuilder 中找到 rk3399-nanopc-t4.dtb，无法替换为 dg3399"
+        echo "❌ 未在 ImageBuilder 中找到 rk3399-nanopc-t4.dtb，无法替换为 $CUSTOM_BOARD_NAME"
         find /home/build/immortalwrt -type f -name "rk3399*.dtb" 2>/dev/null | head -n 50 || true
         exit 1
     fi
 
-    echo "✅ 使用 dg3399 设备树替换 NanoPC-T4 设备树:"
+    echo "✅ 使用 $CUSTOM_DTB 替换 NanoPC-T4 设备树:"
     echo "$DTB_TARGETS" | while IFS= read -r target; do
         echo "  $target"
         cp "$CUSTOM_DTB" "$target"
     done
 }
 
-replace_dg3399_dtb
+rename_custom_rockchip_images() {
+    if [ -z "$CUSTOM_BOARD_NAME" ]; then
+        return
+    fi
 
-make image PROFILE=$PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+    IMAGE_DIR="/home/build/immortalwrt/bin/targets/rockchip/armv8"
+    if [ ! -d "$IMAGE_DIR" ]; then
+        return
+    fi
+
+    find "$IMAGE_DIR" -maxdepth 1 -type f -name "*nanopc-t4*" | while IFS= read -r image; do
+        renamed=$(echo "$image" | sed "s/nanopc-t4/$CUSTOM_BOARD_NAME/g; s/friendlyarm_//g")
+        echo "✅ 重命名镜像: $image -> $renamed"
+        mv "$image" "$renamed"
+    done
+}
+
+prepare_custom_rockchip_board
+
+make image PROFILE=$IMAGEBUILDER_PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
 
 if [ $? -ne 0 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Error: Build failed!"
     exit 1
 fi
+
+rename_custom_rockchip_images
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Build completed successfully."

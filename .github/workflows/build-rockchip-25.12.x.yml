@@ -25,6 +25,8 @@ on:
           - armsom_sige3
           - armsom_sige7
           - cyber_cyber3588-aib
+          - dg3399
+          - boocax
           - ezpro_mrkaio-m68s
           - firefly_roc-rk3328-cc
           - firefly_roc-rk3568-pc
