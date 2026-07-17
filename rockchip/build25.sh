@@ -106,6 +106,33 @@ else
     echo "⚪️ 未选择 luci-app-ssr-plus"
 fi
 
+replace_dg3399_dtb() {
+    if [ "$PROFILE" != "friendlyarm_nanopc-t4" ]; then
+        echo "⚪️ 当前 profile 不是 friendlyarm_nanopc-t4，跳过 dg3399 设备树替换"
+        return
+    fi
+
+    CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
+    if [ ! -f "$CUSTOM_DTB" ]; then
+        echo "❌ 未找到 dg3399 设备树: $CUSTOM_DTB"
+        exit 1
+    fi
+
+    DTB_TARGETS=$(find /home/build/immortalwrt -type f -name "rk3399-nanopc-t4.dtb" 2>/dev/null || true)
+    if [ -z "$DTB_TARGETS" ]; then
+        echo "❌ 未在 ImageBuilder 中找到 rk3399-nanopc-t4.dtb，无法替换为 dg3399"
+        find /home/build/immortalwrt -type f -name "rk3399*.dtb" 2>/dev/null | head -n 50 || true
+        exit 1
+    fi
+
+    echo "✅ 使用 dg3399 设备树替换 NanoPC-T4 设备树:"
+    echo "$DTB_TARGETS" | while IFS= read -r target; do
+        echo "  $target"
+        cp "$CUSTOM_DTB" "$target"
+    done
+}
+
+replace_dg3399_dtb
 
 make image PROFILE=$PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
 

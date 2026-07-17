@@ -168,6 +168,7 @@ jobs:
               -v "${{ github.workspace }}/rockchip/imm.config:/home/build/immortalwrt/.config" \
               -v "${{ github.workspace }}/shell:/home/build/immortalwrt/shell" \
               -v "${{ github.workspace }}/rockchip/build24.sh:/home/build/immortalwrt/build.sh" \
+              -v "${{ github.workspace }}/rockchip/dtb:/home/build/immortalwrt/custom-dtb:ro" \
               -e PROFILE=$profile \
               -e INCLUDE_DOCKER=$include_docker \
               -e ROOTFS_PARTSIZE=$rootfs_partsize \
