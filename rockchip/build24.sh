@@ -9,6 +9,7 @@ echo "Starting 99-custom.sh at $(date)" >> $LOGFILE
 echo "Building for profile: $PROFILE"
 IMAGEBUILDER_PROFILE="$PROFILE"
 CUSTOM_BOARD_NAME=""
+CUSTOM_KERNEL_PIPE=""
 # yml 传入的固件大小 ROOTFS_PARTSIZE
 echo "Building for ROOTFS_PARTSIZE: $ROOTFS_PARTSIZE"
 
@@ -120,11 +121,13 @@ prepare_custom_rockchip_board() {
             CUSTOM_BOARD_NAME="dg3399"
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-dg3399.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
+            CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
             ;;
         boocax)
             CUSTOM_BOARD_NAME="boocax"
             CUSTOM_DTB="/home/build/immortalwrt/custom-dtb/rk3399-boocax.dtb"
             IMAGEBUILDER_PROFILE="friendlyarm_nanopc-t4"
+            CUSTOM_KERNEL_PIPE="kernel-bin | lzma | fit lzma $CUSTOM_DTB"
             ;;
         *)
             echo "⚪️ 当前 profile 使用 ImageBuilder 原生配置: $PROFILE"
@@ -140,18 +143,8 @@ prepare_custom_rockchip_board() {
         exit 1
     fi
 
-    DTB_TARGETS=$(find /home/build/immortalwrt -type f -name "rk3399-nanopc-t4.dtb" 2>/dev/null || true)
-    if [ -z "$DTB_TARGETS" ]; then
-        echo "❌ 未在 ImageBuilder 中找到 rk3399-nanopc-t4.dtb，无法替换为 $CUSTOM_BOARD_NAME"
-        find /home/build/immortalwrt -type f -name "rk3399*.dtb" 2>/dev/null | head -n 50 || true
-        exit 1
-    fi
-
-    echo "✅ 使用 $CUSTOM_DTB 替换 NanoPC-T4 设备树:"
-    echo "$DTB_TARGETS" | while IFS= read -r target; do
-        echo "  $target"
-        cp "$CUSTOM_DTB" "$target"
-    done
+    echo "✅ 自定义设备树大小: $(stat -c%s "$CUSTOM_DTB") bytes"
+    echo "✅ 自定义 KERNEL 打包管线: $CUSTOM_KERNEL_PIPE"
 }
 
 rename_custom_rockchip_images() {
@@ -173,7 +166,11 @@ rename_custom_rockchip_images() {
 
 prepare_custom_rockchip_board
 
-make image PROFILE=$IMAGEBUILDER_PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+if [ -n "$CUSTOM_KERNEL_PIPE" ]; then
+    make image PROFILE=$IMAGEBUILDER_PROFILE KERNEL="$CUSTOM_KERNEL_PIPE" PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+else
+    make image PROFILE=$IMAGEBUILDER_PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+fi
 
 if [ $? -ne 0 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Error: Build failed!"
